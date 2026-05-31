@@ -1,0 +1,254 @@
+{
+  "name": "java-code-checker",
+  "displayName": "Java Code Checker",
+  "description": "A Trae/VS Code extension for Java code checking with PMD, SpotBugs, and CheckStyle support",
+  "version": "1.0.1",
+  "publisher": "FairTree",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Visualization"
+  ],
+  "keywords": [
+    "pmd",
+    "spotbugs",
+    "checkstyle",
+    "java",
+    "code-quality",
+    "lint",
+    "checker"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "javaCodeChecker.openPanel",
+        "title": "Open Java Code Checker Panel",
+        "icon": "$(search)"
+      },
+      {
+        "command": "javaCodeChecker.runCheck",
+        "title": "Run PMD Check",
+        "icon": "$(play)"
+      },
+      {
+        "command": "javaCodeChecker.runSpotBugs",
+        "title": "Run SpotBugs Check",
+        "icon": "$(bug)"
+      },
+      {
+        "command": "javaCodeChecker.runCheckStyle",
+        "title": "Run CheckStyle Check",
+        "icon": "$(check)"
+      },
+      {
+        "command": "javaCodeChecker.openConfig",
+        "title": "Open Configuration",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "javaCodeChecker.refreshFiles",
+        "title": "Refresh Files",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "javaCodeChecker.selectAll",
+        "title": "Select All Files",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "javaCodeChecker.deselectAll",
+        "title": "Deselect All Files",
+        "icon": "$(clear-all)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "javaCodeChecker",
+          "title": "Java Code Checker",
+          "icon": "$(search)"
+        }
+      ]
+    },
+    "views": {
+      "javaCodeChecker": [
+        {
+          "id": "javaCodeChecker.fileTree",
+          "name": "Pending Files",
+          "when": "javaCodeChecker:enabled"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "javaCodeChecker.refreshFiles",
+          "when": "view == javaCodeChecker.fileTree",
+          "group": "navigation"
+        },
+        {
+          "command": "javaCodeChecker.selectAll",
+          "when": "view == javaCodeChecker.fileTree",
+          "group": "navigation"
+        },
+        {
+          "command": "javaCodeChecker.runCheck",
+          "when": "view == javaCodeChecker.fileTree",
+          "group": "navigation"
+        },
+        {
+          "command": "javaCodeChecker.runSpotBugs",
+          "when": "view == javaCodeChecker.fileTree",
+          "group": "navigation"
+        },
+        {
+          "command": "javaCodeChecker.runCheckStyle",
+          "when": "view == javaCodeChecker.fileTree",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "javaCodeChecker.openPanel",
+          "when": "explorerResourceIsFile",
+          "group": "2_workspace@5"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "javaCodeChecker.openPanel",
+          "when": "true"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Java Code Checker",
+      "properties": {
+        "javaCodeChecker.rulesetPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to PMD ruleset XML file (PMD7 format)"
+        },
+        "javaCodeChecker.pmdPath": {
+          "type": "string",
+          "default": "pmd",
+          "description": "Path to PMD executable (default: 'pmd' in PATH)"
+        },
+        "javaCodeChecker.outputFormat": {
+          "type": "string",
+          "default": "json",
+          "enum": [
+            "json",
+            "xml",
+            "text"
+          ],
+          "description": "PMD output format"
+        },
+        "javaCodeChecker.outputPath": {
+          "type": "string",
+          "default": "pmd-report.md",
+          "description": "Output file path for check results"
+        },
+        "javaCodeChecker.autoCheckOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically run PMD check on file save"
+        },
+        "javaCodeChecker.fileExtensions": {
+          "type": "array",
+          "default": [
+            "java"
+          ],
+          "description": "File extensions to check"
+        },
+        "javaCodeChecker.spotbugsPath": {
+          "type": "string",
+          "default": "",
+          "description": "SpotBugs executable path (leave empty to use bundled version)"
+        },
+        "javaCodeChecker.spotbugsOutputPath": {
+          "type": "string",
+          "default": "spotbugs-report.md",
+          "description": "SpotBugs report output path"
+        },
+        "javaCodeChecker.enableFindSecBugs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable FindSecurityBugs security detection plugin"
+        },
+        "javaCodeChecker.spotbugsMinPriority": {
+          "type": "string",
+          "default": "medium",
+          "enum": ["high", "medium", "low"],
+          "description": "SpotBugs minimum priority level: high (Priority 1 only), medium (Priority 1-2), low (all)"
+        },
+        "javaCodeChecker.checkstylePath": {
+          "type": "string",
+          "default": "",
+          "description": "CheckStyle jar path (leave empty to use bundled version)"
+        },
+        "javaCodeChecker.checkstyleConfigPath": {
+          "type": "string",
+          "default": "/sun_checks.xml",
+          "description": "CheckStyle configuration XML file path (use /google_checks.xml or /sun_checks.xml for built-in configs, or provide a custom path)"
+        },
+        "javaCodeChecker.checkstyleSuppressionsPath": {
+          "type": "string",
+          "default": "",
+          "description": "CheckStyle suppressions XML file path (leave empty if not needed). Passes suppressions.file property to config via -p"
+        },
+        "javaCodeChecker.checkstyleOutputPath": {
+          "type": "string",
+          "default": "checkstyle-report.md",
+          "description": "CheckStyle report output file path"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "javaCodeChecker.openPanel",
+        "key": "ctrl+shift+p",
+        "mac": "cmd+shift+p",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "build:webview": "webpack --mode production",
+    "watch:webview": "webpack --mode development --watch",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "16.x",
+    "@types/react": "^18.0.26",
+    "@types/react-dom": "^18.0.9",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "@vscode/vsce": "^3.7.1",
+    "css-loader": "^6.7.2",
+    "eslint": "^8.28.0",
+    "style-loader": "^3.3.1",
+    "ts-loader": "^9.4.1",
+    "typescript": "^4.9.4",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}

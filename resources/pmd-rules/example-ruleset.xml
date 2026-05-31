@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="example-ruleset"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+    <description>Example PMD Ruleset for Java Projects</description>
+    
+    <!-- 
+        This is an example PMD7 ruleset file.
+        You can customize it according to your project's needs.
+        
+        For more information about available rules, visit:
+        https://pmd.github.io/latest/pmd_rules_java.html
+    -->
+    
+    <!-- Best Practices - Rules that enforce generally accepted best practices -->
+    <rule ref="category/java/bestpractices.xml">
+        <!-- Exclude rules that might be too strict for some projects -->
+        <exclude name="SystemPrintln"/>
+        <exclude name="GuardLogStatement"/>
+    </rule>
+    
+    <!-- Code Style - Rules that enforce a specific coding style -->
+    <rule ref="category/java/codestyle.xml">
+        <!-- Exclude naming convention rules that might conflict with your style -->
+        <exclude name="ShortVariable"/>
+        <exclude name="LongVariable"/>
+        <exclude name="ShortMethodName"/>
+        <exclude name="ShortClassName"/>
+        <exclude name="OnlyOneReturn"/>
+    </rule>
+    
+    <!-- Design - Rules that find design issues -->
+    <rule ref="category/java/design.xml">
+        <!-- Exclude rules that might be too strict -->
+        <exclude name="LawOfDemeter"/>
+        <exclude name="UseUtilityClass"/>
+    </rule>
+    
+    <!-- Error Prone - Rules to detect constructs that are either broken or dangerous -->
+    <rule ref="category/java/errorprone.xml">
+        <!-- Exclude if you have specific use cases -->
+        <exclude name="BeanMembersShouldSerialize"/>
+    </rule>
+    
+    <!-- Performance - Rules that flag suboptimal code -->
+    <rule ref="category/java/performance.xml"/>
+    
+    <!-- Security - Rules that flag potential security flaws -->
+    <rule ref="category/java/security.xml"/>
+    
+    <!-- Documentation - Rules related to code documentation -->
+    <rule ref="category/java/documentation.xml">
+        <!-- Exclude if you don't require Javadoc for all members -->
+        <exclude name="CommentRequired"/>
+    </rule>
+    
+    <!-- Multithreading - Rules that flag issues in multithreaded code -->
+    <rule ref="category/java/multithreading.xml"/>
+    
+    <!-- 
+        Custom rule configurations
+        You can customize specific rules by overriding their properties
+    -->
+    
+    <!-- Example: Customize cyclomatic complexity threshold -->
+    <rule ref="category/java/design.xml/CyclomaticComplexity">
+        <properties>
+            <property name="methodReportLevel" value="10"/>
+            <property name="classReportLevel" value="50"/>
+        </properties>
+    </rule>
+    
+    <!-- Example: Customize line length -->
+    <rule ref="category/java/codestyle.xml/LineLength">
+        <properties>
+            <property name="maxLineLength" value="120"/>
+        </properties>
+    </rule>
+    
+    <!-- Example: Customize method length -->
+    <rule ref="category/java/design.xml/ExcessiveMethodLength">
+        <properties>
+            <property name="minimum" value="50"/>
+        </properties>
+    </rule>
+    
+    <!-- Example: Customize class length -->
+    <rule ref="category/java/design.xml/ExcessiveClassLength">
+        <properties>
+            <property name="minimum" value="500"/>
+        </properties>
+    </rule>
+    
+    <!-- Example: Customize parameter count -->
+    <rule ref="category/java/design.xml/ExcessiveParameterList">
+        <properties>
+            <property name="minimum" value="5"/>
+        </properties>
+    </rule>
+    
+</ruleset>
