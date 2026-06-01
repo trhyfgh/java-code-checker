@@ -1,3 +1,4 @@
+[**English**](README.md)
 # Java Code Checker
 
 一个集成 **PMD**、**SpotBugs** 和 **CheckStyle** 的 Trae/VS Code Java 代码检查扩展。
