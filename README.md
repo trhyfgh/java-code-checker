@@ -1,4 +1,4 @@
-[**中文文档**](README.zh-cn.md)
+[**中文文档**](readme_zh.md)
 # Java Code Checker
 
 A Trae/VS Code extension for comprehensive Java code checking, integrating **PMD**, **SpotBugs**, and **CheckStyle** in one place.
