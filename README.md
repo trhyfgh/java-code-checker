@@ -3,6 +3,10 @@
 
 A Trae/VS Code extension for comprehensive Java code checking, integrating **PMD**, **SpotBugs**, and **CheckStyle** in one place.
 
+## repository
+
+- [Java Code Checker](https://github.com/trhyfgh/java-code-checker)
+
 ## Features
 
 - **PMD** — Source-level static analysis for best practices, code style, design, error-prone patterns, performance, and security

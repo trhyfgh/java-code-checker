@@ -3,6 +3,10 @@
 
 一个集成 **PMD**、**SpotBugs** 和 **CheckStyle** 的 Trae/VS Code Java 代码检查扩展。
 
+## 仓库地址
+
+- [Java Code Checker](https://github.com/trhyfgh/java-code-checker)
+
 ## 功能特性
 
 - **PMD** — 源码级静态分析，覆盖最佳实践、代码风格、设计、易错模式、性能和安全

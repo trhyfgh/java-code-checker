@@ -2,15 +2,15 @@
   "name": "java-code-checker",
   "displayName": "Java Code Checker",
   "description": "A VS Code extension for Java code checking with PMD, SpotBugs, and CheckStyle support",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "FairTree",
-  "repository": "https://github.com/FairTree/java-code-checker",
+  "repository": "https://github.com/trhyfgh/java-code-checker",
   "license": "MIT",
   "readme": "./README.md",
   "bugs": {
-    "url": "https://github.com/FairTree/java-code-checker/issues"
+    "url": "https://github.com/trhyfgh/java-code-checker/issues"
   },
-  "homepage": "https://github.com/FairTree/java-code-checker",
+  "homepage": "https://github.com/trhyfgh/java-code-checker", 
   "engines": {
     "vscode": "^1.74.0"
   },

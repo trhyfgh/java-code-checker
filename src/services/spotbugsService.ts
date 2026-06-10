@@ -10,6 +10,8 @@ export interface SpotBugsBug {
     category: string;
     priority: number;
     message: string;
+    className: string;
+    methodName: string;
     filePath: string;
     relativePath: string;
     line: number;
@@ -20,6 +22,17 @@ export interface SpotBugsResult {
     bugs: SpotBugsBug[];
     errors: string[];
     executionTime: number;
+}
+
+type SourceLineContext = 'bug' | 'method' | 'field' | 'local' | 'class';
+
+interface SourceLineCandidate {
+    attrs: string;
+    filePath: string;
+    line: number;
+    primary: boolean;
+    matched: boolean;
+    context: SourceLineContext;
 }
 
 export class SpotBugsService {
@@ -172,6 +185,7 @@ export class SpotBugsService {
             }
 
             const classFilePaths: string[] = [];
+            const sourceRoots = new Set<string>();
             for (const javaFile of filePaths) {
                 const relativeJavaPath = path.relative(workspaceRoot, javaFile);
                 const normalizedPath = relativeJavaPath.replace(/\\/g, '/');
@@ -182,10 +196,16 @@ export class SpotBugsService {
                 const srcJavaIndex = cleanPath.indexOf('/src/main/java/');
                 const srcTestIndex = cleanPath.indexOf('/src/test/java/');
                 const srcIdx = srcJavaIndex >= 0 ? srcJavaIndex : srcTestIndex;
+                const sourceRootMarker = srcJavaIndex >= 0 ? '/src/main/java/' :
+                    srcTestIndex >= 0 ? '/src/test/java/' : '';
                 if (srcIdx >= 0) {
-                    cleanPath = cleanPath.substring(srcIdx + '/src/main/java/'.length);
+                    const sourceRootRelativePath = normalizedPath.substring(0, srcIdx + sourceRootMarker.length - 1);
+                    sourceRoots.add(path.join(workspaceRoot, sourceRootRelativePath));
+                    cleanPath = cleanPath.substring(srcIdx + sourceRootMarker.length);
                 } else if (cleanPath.startsWith('src/main/java/') || cleanPath.startsWith('src/test/java/')) {
-                    cleanPath = cleanPath.substring(cleanPath.indexOf('/', 4) + 1);
+                    const sourceRootRelativePath = cleanPath.startsWith('src/main/java/') ? 'src/main/java' : 'src/test/java';
+                    sourceRoots.add(path.join(workspaceRoot, sourceRootRelativePath));
+                    cleanPath = cleanPath.substring(`${sourceRootRelativePath}/`.length);
                 }
 
                 const classFileName = path.basename(cleanPath, '.java') + '.class';
@@ -281,7 +301,20 @@ export class SpotBugsService {
             // pass only the specific .class files corresponding to the selected Java files
             this.outputChannel.appendLine(`Will analyze ${classFilePaths.length} specific class files (not entire directories)`);
 
-            args.push('-sourcepath', path.join(workspaceRoot, 'src', 'main', 'java'));
+            if (sourceRoots.size === 0) {
+                const defaultSourceRoot = path.join(workspaceRoot, 'src', 'main', 'java');
+                if (fs.existsSync(defaultSourceRoot)) {
+                    sourceRoots.add(defaultSourceRoot);
+                }
+            }
+
+            if (sourceRoots.size > 0) {
+                const sourcePathArg = Array.from(sourceRoots).join(path.delimiter);
+                args.push('-sourcepath', sourcePathArg);
+                this.outputChannel.appendLine(`Using sourcepath: ${sourcePathArg}`);
+            } else {
+                this.outputChannel.appendLine('Warning: No source roots found. SpotBugs line numbers may be less accurate.');
+            }
 
             let auxClasspath = '';
             const possibleLibDirs = [
@@ -509,6 +542,8 @@ export class SpotBugsService {
         const bugInstanceRegex = /<BugInstance\b([^>]*)>([\s\S]*?)<\/BugInstance>/g;
         const attrRegex = (name: string) => new RegExp(`${name}="([^"]+)"`);
         const shortMessageRegex = /<ShortMessage>([^<]*)<\/ShortMessage>/;
+        const classRegex = /<Class\b([^>]*)>/;
+        const methodRegex = /<Method\b([^>]*)>/;
         // SpotBugs XML uses start/end attributes (not line), and sourcepath gives the package-based path
         // NOTE: [^/]* would stop at the first '/' inside attribute values like sourcepath="com/example/Foo.java"
         // so we use a lazy match up to the self-closing '/>'
@@ -530,42 +565,49 @@ export class SpotBugsService {
 
             const shortMessageMatch = bugContent.match(shortMessageRegex);
             const message = shortMessageMatch ? shortMessageMatch[1] : type;
+            const className = this.getSimpleClassName(this.getXmlAttr(bugContent.match(classRegex)?.[1] || '', 'classname'));
+            const methodName = this.getXmlAttr(bugContent.match(methodRegex)?.[1] || '', 'name');
 
-            // Parse all SourceLine tags; prefer the one marked primary="true"
+            // Parse all SourceLine tags; class-level lines often point to the class declaration,
+            // so prefer the bug/method/field location when SpotBugs provides one.
             let filePath = '';
             let line = 0;
-            let bestSourceLineAttrs = '';
+            let bestSourceLine: SourceLineCandidate | undefined;
             sourceLineTagRegex.lastIndex = 0;
             let slMatch: RegExpExecArray | null;
             while ((slMatch = sourceLineTagRegex.exec(bugContent)) !== null) {
                 const slAttrs = slMatch[1];
-                if (!bestSourceLineAttrs || /primary="true"/.test(slAttrs)) {
-                    bestSourceLineAttrs = slAttrs;
-                }
-            }
-            if (bestSourceLineAttrs) {
-                const sfMatch = bestSourceLineAttrs.match(/sourcefile="([^"]+)"/);
-                const spMatch = bestSourceLineAttrs.match(/sourcepath="([^"]+)"/);
-                const startMatch = bestSourceLineAttrs.match(/start="([^"]+)"/);
-                line = startMatch ? (parseInt(startMatch[1], 10) || 0) : 0;
+                const sfMatch = slAttrs.match(/sourcefile="([^"]+)"/);
+                const spMatch = slAttrs.match(/sourcepath="([^"]+)"/);
+                const startMatch = slAttrs.match(/start="([^"]+)"/);
+                const startLine = startMatch ? (parseInt(startMatch[1], 10) || 0) : 0;
                 const sourceFile = sfMatch ? sfMatch[1] : '';
                 const sourcePath = spMatch ? spMatch[1] : '';
-                if (sourceFile) {
-                    const normalizedSourcePath = sourcePath.replace(/\\/g, '/');
-                    const matchingSource = sourceFiles.find(sf => {
-                        const normalizedSf = sf.replace(/\\/g, '/');
-                        return (normalizedSourcePath && normalizedSf.endsWith(normalizedSourcePath)) ||
-                               normalizedSf.endsWith('/' + sourceFile) ||
-                               path.basename(sf) === sourceFile;
-                    });
-                    filePath = matchingSource || sourceFile;
+                const normalizedSourcePath = sourcePath.replace(/\\/g, '/');
+                const matchingSource = this.resolveSourceFile(sourceFiles, normalizedSourcePath, sourceFile);
+                const candidate = {
+                    attrs: slAttrs,
+                    filePath: matchingSource || sourceFile,
+                    line: startLine,
+                    primary: /primary="true"/.test(slAttrs),
+                    matched: Boolean(matchingSource),
+                    context: this.getSourceLineContext(bugContent, slMatch.index)
+                };
+
+                if (this.isBetterSourceLine(candidate, bestSourceLine)) {
+                    bestSourceLine = candidate;
                 }
+            }
+            if (bestSourceLine) {
+                filePath = bestSourceLine.filePath;
+                line = bestSourceLine.line;
             }
             
             const priorityLabel = priority === 1 ? '🔴 高危' : priority === 2 ? '🟡 中危' : '🟢 低危';
             const relativePath = filePath ? vscode.workspace.asRelativePath(filePath) : '未知文件';
+            const location = this.formatBugLocation(className, methodName);
             this.outputChannel.appendLine(
-                `📄 ${relativePath}:${line} | [${category}] ${type} - ${priorityLabel}: ${message}`
+                `📄 ${relativePath}:${line} | ${location} | [${category}] ${type} - ${priorityLabel}: ${message}`
             );
 
             bugs.push({
@@ -573,6 +615,8 @@ export class SpotBugsService {
                 category,
                 priority,
                 message,
+                className,
+                methodName,
                 filePath,
                 relativePath,
                 line
@@ -594,7 +638,8 @@ export class SpotBugsService {
                 this.outputChannel.appendLine(`\n📁 ${relativePath}`);
                 for (const b of fileBugs) {
                     const priorityLabel = b.priority === 1 ? '🔴 高危' : b.priority === 2 ? '🟡 中危' : '🟢 低危';
-                    this.outputChannel.appendLine(`   📍 第 ${b.line} 行 | [${b.category}] ${b.type} - ${priorityLabel}: ${b.message}`);
+                    const location = this.formatBugLocation(b.className, b.methodName);
+                    this.outputChannel.appendLine(`   📍 ${location} | 第 ${b.line} 行 | [${b.category}] ${b.type} - ${priorityLabel}: ${b.message}`);
                 }
             }
             this.outputChannel.appendLine(`\n==========================================`);
@@ -604,6 +649,110 @@ export class SpotBugsService {
         this.updateDiagnostics(bugs);
 
         return bugs;
+    }
+
+    private getXmlAttr(attrs: string, name: string): string {
+        const match = attrs.match(new RegExp(`${name}="([^"]+)"`));
+        return match ? this.unescapeXml(match[1]) : '';
+    }
+
+    private getSimpleClassName(className: string): string {
+        if (!className) {
+            return '';
+        }
+        const normalizedClassName = className.replace(/\$/g, '.');
+        return normalizedClassName.split('.').pop() || normalizedClassName;
+    }
+
+    private formatBugLocation(className: string, methodName: string): string {
+        if (className && methodName) {
+            return `${className}.${methodName}()`;
+        }
+        return className || methodName || '未知位置';
+    }
+
+    private unescapeXml(value: string): string {
+        return value
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&');
+    }
+
+    private escapeHtml(value: string): string {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    private resolveSourceFile(sourceFiles: string[], sourcePath: string, sourceFile: string): string | undefined {
+        if (!sourceFile && !sourcePath) {
+            return undefined;
+        }
+
+        return sourceFiles.find(sf => {
+            const normalizedSf = sf.replace(/\\/g, '/');
+            return (sourcePath && normalizedSf.endsWith(sourcePath)) ||
+                   (sourceFile && normalizedSf.endsWith('/' + sourceFile)) ||
+                   path.basename(sf) === sourceFile;
+        });
+    }
+
+    private isBetterSourceLine(candidate: SourceLineCandidate, current?: SourceLineCandidate): boolean {
+        if (!current) {
+            return true;
+        }
+
+        const candidateScore = this.getSourceLineScore(candidate);
+        const currentScore = this.getSourceLineScore(current);
+
+        return candidateScore > currentScore;
+    }
+
+    private getSourceLineScore(sourceLine: SourceLineCandidate): number {
+        let score = 0;
+        score += sourceLine.context === 'bug' ? 10 :
+            sourceLine.context === 'local' ? 8 :
+            sourceLine.context === 'method' || sourceLine.context === 'field' ? 6 :
+            sourceLine.context === 'class' ? 0 : 3;
+        if (sourceLine.line > 0) {
+            score += 4;
+        }
+        if (sourceLine.matched) {
+            score += 2;
+        }
+        if (sourceLine.primary) {
+            score += 1;
+        }
+        return score;
+    }
+
+    private getSourceLineContext(bugContent: string, sourceLineIndex: number): SourceLineContext {
+        if (this.isInsideXmlElement(bugContent, 'Method', sourceLineIndex)) {
+            return 'method';
+        }
+        if (this.isInsideXmlElement(bugContent, 'Field', sourceLineIndex)) {
+            return 'field';
+        }
+        if (this.isInsideXmlElement(bugContent, 'LocalVariable', sourceLineIndex)) {
+            return 'local';
+        }
+        if (this.isInsideXmlElement(bugContent, 'Class', sourceLineIndex)) {
+            return 'class';
+        }
+        return 'bug';
+    }
+
+    private isInsideXmlElement(xmlContent: string, tagName: string, index: number): boolean {
+        const before = xmlContent.substring(0, index);
+        const lastOpen = before.lastIndexOf(`<${tagName}`);
+        const lastClose = before.lastIndexOf(`</${tagName}>`);
+
+        return lastOpen > lastClose;
     }
 
     public async generateReport(
@@ -866,9 +1015,9 @@ export class SpotBugsService {
                     const priorityLabel = b.priority === 1 ? '高危' : b.priority === 2 ? '中危' : '低危';
                     html += `        <tr>
             <td>${b.line}</td>
-            <td>${b.type}</td>
+            <td>${this.escapeHtml(b.type)}</td>
             <td class="${cssClass}">${priorityLabel}</td>
-            <td>${b.message}</td>
+            <td>${this.escapeHtml(b.message)}</td>
         </tr>
 `;
                 }
@@ -900,9 +1049,9 @@ export class SpotBugsService {
                         const priorityLabel = b.priority === 1 ? '高' : b.priority === 2 ? '中' : '低';
                         html += `        <tr>
             <td>${b.line}</td>
-            <td>${b.type}</td>
+            <td>${this.escapeHtml(b.type)}</td>
             <td class="${cssClass}">${priorityLabel}</td>
-            <td>${b.message}</td>
+            <td>${this.escapeHtml(b.message)}</td>
         </tr>
 `;
                     }
@@ -952,9 +1101,10 @@ export class SpotBugsService {
                 }
 
                 // 创建诊断信息
+                const location = this.formatBugLocation(bug.className, bug.methodName);
                 const diagnostic = new vscode.Diagnostic(
                     range,
-                    `[${bug.category}] ${bug.type}: ${bug.message}`,
+                    `[${bug.category}] ${bug.type} (${location}): ${bug.message}`,
                     severity
                 );
 

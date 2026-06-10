@@ -769,9 +769,11 @@ export class JavaCodeCheckerPanel {
                 securityBugs.slice(0, 30).forEach(b => {
                     const priorityClass = b.priority === 1 ? 'security' : b.priority === 2 ? 'warning' : '';
                     const displayPath = b.relativePath || b.filePath;
+                    const location = b.className && b.methodName ? b.className + '.' + b.methodName + '()' : (b.className || b.methodName || 'Unknown location');
                     bugsHtml += \`
                         <div class="violation-item \${priorityClass}" onclick="openFile('\${b.filePath}', \${b.line})">
                             <div class="violation-file">\${displayPath} : 第 \${b.line} 行</div>
+                            <div class="violation-rule">\${location}</div>
                             <div class="violation-message">\${b.message}</div>
                             <div class="violation-rule">\${b.type} (Priority \${b.priority})</div>
                         </div>
@@ -785,9 +787,11 @@ export class JavaCodeCheckerPanel {
                 otherBugs.slice(0, 30).forEach(b => {
                     const priorityClass = b.priority === 1 ? '' : b.priority === 2 ? 'warning' : 'info';
                     const displayPath = b.relativePath || b.filePath;
+                    const location = b.className && b.methodName ? b.className + '.' + b.methodName + '()' : (b.className || b.methodName || 'Unknown location');
                     bugsHtml += \`
                         <div class="violation-item \${priorityClass}" onclick="openFile('\${b.filePath}', \${b.line})">
                             <div class="violation-file">\${displayPath} : 第 \${b.line} 行</div>
+                            <div class="violation-rule">\${location}</div>
                             <div class="violation-message">\${b.message}</div>
                             <div class="violation-rule">\${b.type} [\${b.category}] (Priority \${b.priority})</div>
                         </div>
